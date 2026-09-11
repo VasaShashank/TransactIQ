@@ -6,24 +6,27 @@ logger = logging.getLogger(__name__)
 
 class Neo4jManager:
     _driver: Driver | None = None
-    _unavailable: bool = False
 
     @classmethod
     def get_driver(cls) -> Driver | None:
-        if cls._unavailable:
-            return None
         if cls._driver is None:
             try:
                 cls._driver = GraphDatabase.driver(
                     settings.NEO4J_URI,
                     auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD)
                 )
-                # Verify connectivity
+                # Verify connectivity — raises if unreachable
                 cls._driver.verify_connectivity()
+                logger.info("Neo4j connected successfully.")
             except Exception as e:
-                logger.warning(f"Neo4j is not available, graph features will be disabled: {e}")
+                logger.warning(f"Neo4j unavailable (graph features disabled): {e}")
+                # Close stale driver if it was created before connectivity check failed
+                try:
+                    if cls._driver:
+                        cls._driver.close()
+                except Exception:
+                    pass
                 cls._driver = None
-                cls._unavailable = True
                 return None
         return cls._driver
 

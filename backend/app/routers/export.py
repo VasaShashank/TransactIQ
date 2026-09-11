@@ -27,12 +27,7 @@ def export_case_pdf(
     if not case:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Case not found")
 
-    if neo4j_session is None:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Neo4j graph database is not available. PDF export requires graph data."
-        )
-
+    # Neo4j is optional — RiskScoreService falls back to SQL-derived signals if unavailable
     risk_service = RiskScoreService(db, neo4j_session, redis_client)
     pdf_bytes = PDFService.generate_case_pdf(case, risk_service)
 
