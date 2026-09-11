@@ -8,6 +8,7 @@ from sqlalchemy import create_engine, text
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "backend")))
 
+# pyrefly: ignore [missing-import]
 from app.core.config import settings
 
 def load_paysim_to_postgres(csv_path: str, chunk_size: int = 50000):
@@ -19,7 +20,9 @@ def load_paysim_to_postgres(csv_path: str, chunk_size: int = 50000):
     engine = create_engine(settings.get_database_url())
 
     # Ensure tables exist
+    # pyrefly: ignore [missing-import]
     from app.core.database import Base
+    # pyrefly: ignore [missing-import]
     from app.models import User, Account, Transaction, Case, AuditLog
     Base.metadata.create_all(bind=engine)
 

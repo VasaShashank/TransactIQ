@@ -124,3 +124,15 @@ export interface AlertMessage {
   message: string;
   timestamp: string;
 }
+
+export interface TimelineResponse {
+  transactions: Transaction[];
+  total: number;
+}
+
+export interface AccountSearchResult {
+  accounts: Account[];
+  total: number;
+  page: number;
+  limit: number;
+}

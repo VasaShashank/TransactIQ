@@ -59,7 +59,7 @@ export const AlertNotifications: React.FC = () => {
           alignItems: 'start',
           gap: '12px'
         }}>
-          <ShieldAlert size={22} style={{ shrink: 0, marginTop: '2px' }} />
+          <ShieldAlert size={22} style={{ flexShrink: 0, marginTop: '2px' }} />
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>REAL-TIME FRAUD TRANSACTION ALERT</div>
             <div style={{ fontSize: '0.8rem', opacity: 0.9, marginTop: '2px' }}>{alert.message}</div>

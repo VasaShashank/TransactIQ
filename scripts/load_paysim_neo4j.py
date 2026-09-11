@@ -8,6 +8,8 @@ from neo4j import GraphDatabase
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "backend")))
 
+
+# pyrefly: ignore [missing-import]
 from app.core.config import settings
 
 def load_paysim_to_neo4j(csv_path: str, batch_size: int = 10000, max_rows: int | None = None):
