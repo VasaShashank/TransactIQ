@@ -4,7 +4,7 @@ from app.core.database import Base
 class Transaction(Base):
     __tablename__ = "transactions"
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
     step = Column(Integer, nullable=False, index=True) # Time step in hours
     type = Column(String, nullable=False, index=True) # PAYMENT, TRANSFER, CASH_OUT, DEBIT, CASH_IN
     amount = Column(Float, nullable=False, index=True)
