@@ -4,8 +4,9 @@ import time
 import pandas as pd
 from sqlalchemy import create_engine, text
 
-# Add backend directory to sys.path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
+# Add backend directory or parent directory to sys.path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "backend")))
 
 from app.core.config import settings
 
