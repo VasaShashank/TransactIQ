@@ -16,8 +16,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy backend application code
 COPY backend/ .
 
-# Copy sample data & scripts
-COPY paysim.csv /app/paysim.csv
+# Copy ingestion scripts
 COPY scripts/ /app/scripts/
 
 EXPOSE 8000
