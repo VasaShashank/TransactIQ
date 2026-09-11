@@ -10,10 +10,48 @@ from app.core.config import settings
 from app.core.database import engine, Base, SessionLocal
 from app.core.security import get_password_hash
 from app.models.user import User, UserRole
+from app.models.account import Account
+from app.models.transaction import Transaction
 from app.routers import auth, accounts, graph, risk, cases, audit, alerts, export
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+def seed_sample_data(db):
+    import random
+    random.seed(42)
+    customers = [f"C{random.randint(1000000, 9999999)}" for _ in range(50)]
+    merchants = [f"M{random.randint(1000000, 9999999)}" for _ in range(20)]
+    for cid in customers:
+        db.add(Account(id=cid, node_type="CUSTOMER"))
+    for mid in merchants:
+        db.add(Account(id=mid, node_type="MERCHANT"))
+    db.flush()
+
+    txn_types = ["PAYMENT", "TRANSFER", "CASH_OUT", "DEBIT", "CASH_IN"]
+    for step in range(1, 25):
+        for _ in range(10):
+            ttype = random.choices(txn_types, weights=[0.4, 0.25, 0.25, 0.05, 0.05])[0]
+            orig = random.choice(customers)
+            dest = random.choice(merchants if ttype in ["PAYMENT", "CASH_OUT"] else customers)
+            amount = round(random.uniform(50.0, 15000.0), 2)
+            is_fraud = 1 if (ttype in ["TRANSFER", "CASH_OUT"] and amount > 7000.0 and random.random() < 0.25) else 0
+
+            db.add(Transaction(
+                step=step,
+                type=ttype,
+                amount=amount,
+                orig_account_id=orig,
+                dest_account_id=dest,
+                old_balance_orig=amount + 5000.0,
+                new_balance_orig=5000.0,
+                old_balance_dest=1000.0,
+                new_balance_dest=1000.0 + amount,
+                is_fraud=is_fraud,
+                is_flagged_fraud=is_fraud
+            ))
+    db.commit()
+    logger.info("Sample PaySim accounts and transactions seeded successfully.")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -44,6 +82,11 @@ async def lifespan(app: FastAPI):
                 )
                 db.add(analyst)
 
+            # Seed sample accounts and transactions if empty
+            if db.query(Account).count() == 0:
+                logger.info("No transaction data detected in database. Auto-seeding initial PaySim dataset...")
+                seed_sample_data(db)
+
             db.commit()
             logger.info("Database initialized & default users seeded successfully.")
         except Exception as e:
@@ -52,11 +95,7 @@ async def lifespan(app: FastAPI):
         finally:
             db.close()
     except Exception as e:
-        logger.error(f"Database initialization failed (PostgreSQL connection error): {e}")
-        logger.warning(
-            "Application started, but PostgreSQL is currently unreachable. "
-            "Please ensure the DATABASE_URL environment variable is set to a valid PostgreSQL connection string in your deployment environment."
-        )
+        logger.error(f"Database initialization failed: {e}")
 
     yield
     logger.info("Shutting down API server...")
