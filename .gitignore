@@ -1,0 +1,76 @@
+﻿# ==============================================================================
+# FraudLens -- .gitignore
+# ==============================================================================
+
+# -- Python --------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.Python
+pip-log.txt
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# pytest / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+coverage.xml
+*.cover
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# -- Node / Frontend -----------------------------------------------------------
+node_modules/
+frontend/dist/
+frontend/build/
+frontend/.vite/
+*.local
+
+# -- Environment & Secrets -----------------------------------------------------
+.env
+.env.*
+!.env.example
+
+# -- Databases -----------------------------------------------------------------
+*.db
+*.sqlite
+*.sqlite3
+test.db
+
+# -- Editors & OS --------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# -- Logs & Temp ---------------------------------------------------------------
+*.log
+logs/
+tmp/
+temp/
+
+# -- Large Data Files ----------------------------------------------------------
+paysim.csv
+*.csv
+
+# -- Alembic -------------------------------------------------------------------
+backend/alembic/versions/__pycache__/
