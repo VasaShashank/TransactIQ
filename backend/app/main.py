@@ -16,37 +16,44 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     # Startup: Create tables if not present & seed default users
     logger.info("Initializing database schemas...")
-    Base.metadata.create_all(bind=engine)
-    
-    db = SessionLocal()
     try:
-        # Seed Admin user
-        admin = db.query(User).filter(User.email == "admin@fraud.intel").first()
-        if not admin:
-            admin = User(
-                email="admin@fraud.intel",
-                hashed_password=get_password_hash("admin123"),
-                role=UserRole.ADMIN.value
-            )
-            db.add(admin)
+        Base.metadata.create_all(bind=engine)
+        
+        db = SessionLocal()
+        try:
+            # Seed Admin user
+            admin = db.query(User).filter(User.email == "admin@fraud.intel").first()
+            if not admin:
+                admin = User(
+                    email="admin@fraud.intel",
+                    hashed_password=get_password_hash("admin123"),
+                    role=UserRole.ADMIN.value
+                )
+                db.add(admin)
 
-        # Seed Analyst user
-        analyst = db.query(User).filter(User.email == "analyst@fraud.intel").first()
-        if not analyst:
-            analyst = User(
-                email="analyst@fraud.intel",
-                hashed_password=get_password_hash("analyst123"),
-                role=UserRole.ANALYST.value
-            )
-            db.add(analyst)
+            # Seed Analyst user
+            analyst = db.query(User).filter(User.email == "analyst@fraud.intel").first()
+            if not analyst:
+                analyst = User(
+                    email="analyst@fraud.intel",
+                    hashed_password=get_password_hash("analyst123"),
+                    role=UserRole.ANALYST.value
+                )
+                db.add(analyst)
 
-        db.commit()
-        logger.info("Database initialized & default users seeded successfully.")
+            db.commit()
+            logger.info("Database initialized & default users seeded successfully.")
+        except Exception as e:
+            logger.error(f"Error seeding default users: {e}")
+            db.rollback()
+        finally:
+            db.close()
     except Exception as e:
-        logger.error(f"Error seeding default users: {e}")
-        db.rollback()
-    finally:
-        db.close()
+        logger.error(f"Database initialization failed (PostgreSQL connection error): {e}")
+        logger.warning(
+            "Application started, but PostgreSQL is currently unreachable. "
+            "Please ensure the DATABASE_URL environment variable is set to a valid PostgreSQL connection string in your deployment environment."
+        )
 
     yield
     logger.info("Shutting down API server...")
