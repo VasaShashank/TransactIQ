@@ -1,10 +1,8 @@
-import os
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, RedirectResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import RedirectResponse
 
 from app.core.config import settings
 from app.core.database import engine, Base, SessionLocal
@@ -140,30 +138,11 @@ app.include_router(audit.router, prefix=settings.API_V1_STR)
 app.include_router(export.router, prefix=settings.API_V1_STR)
 app.include_router(alerts.router)
 
-@app.api_route("/health", methods=["GET", "HEAD"])
+@app.get("/health")
 def health_check():
     return {"status": "healthy", "project": settings.PROJECT_NAME}
 
-# Frontend SPA Static Files serving
-static_dir = os.path.join(os.path.dirname(__file__), "..", "static")
-if not os.path.exists(static_dir):
-    static_dir = os.path.abspath("static")
-
-if os.path.exists(static_dir) and os.path.isfile(os.path.join(static_dir, "index.html")):
-    assets_dir = os.path.join(static_dir, "assets")
-    if os.path.exists(assets_dir):
-        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
-
-    @app.api_route("/{full_path:path}", methods=["GET", "HEAD"], include_in_schema=False)
-    async def serve_spa(full_path: str):
-        if full_path.startswith("api") or full_path.startswith("ws") or full_path in ("docs", "redoc", "openapi.json", "health"):
-            raise HTTPException(status_code=404, detail="Not Found")
-        target_file = os.path.join(static_dir, full_path)
-        if full_path and os.path.isfile(target_file):
-            return FileResponse(target_file)
-        return FileResponse(os.path.join(static_dir, "index.html"))
-else:
-    @app.api_route("/", methods=["GET", "HEAD"], include_in_schema=False)
-    def root():
-        return RedirectResponse(url="/docs")
+@app.get("/", include_in_schema=False)
+def root():
+    return RedirectResponse(url="/docs")
 
