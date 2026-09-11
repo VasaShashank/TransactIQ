@@ -86,7 +86,7 @@ app.include_router(audit.router, prefix=settings.API_V1_STR)
 app.include_router(export.router, prefix=settings.API_V1_STR)
 app.include_router(alerts.router)
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 def health_check():
     return {"status": "healthy", "project": settings.PROJECT_NAME}
 
@@ -100,7 +100,7 @@ if os.path.exists(static_dir) and os.path.isfile(os.path.join(static_dir, "index
     if os.path.exists(assets_dir):
         app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
-    @app.get("/{full_path:path}", include_in_schema=False)
+    @app.api_route("/{full_path:path}", methods=["GET", "HEAD"], include_in_schema=False)
     async def serve_spa(full_path: str):
         if full_path.startswith("api") or full_path.startswith("ws") or full_path in ("docs", "redoc", "openapi.json", "health"):
             raise HTTPException(status_code=404, detail="Not Found")
@@ -109,7 +109,7 @@ if os.path.exists(static_dir) and os.path.isfile(os.path.join(static_dir, "index
             return FileResponse(target_file)
         return FileResponse(os.path.join(static_dir, "index.html"))
 else:
-    @app.get("/", include_in_schema=False)
+    @app.api_route("/", methods=["GET", "HEAD"], include_in_schema=False)
     def root():
         return RedirectResponse(url="/docs")
 
