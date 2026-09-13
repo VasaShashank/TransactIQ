@@ -7,7 +7,7 @@ from app.core.neo4j import get_neo4j_session
 from app.core.redis import get_redis
 from app.services.graph_service import GraphService
 from app.services.audit_service import AuditService
-from app.schemas.graph import GraphResponse, FanAnalysisResponse, CentralityResponse
+from app.schemas.graph import GraphResponse, FanAnalysisResponse, CentralityResponse, CycleDetectionResponse, CommunityResponse
 from app.routers.deps import get_current_user
 from app.models.user import User
 
@@ -65,3 +65,26 @@ def get_centrality(
     _require_neo4j(neo4j_session)
     service = GraphService(neo4j_session, redis_client)
     return service.get_centrality(account_id=id)
+
+@router.get("/{id}/cycles", response_model=CycleDetectionResponse)
+def get_cycles(
+    id: str,
+    max_length: int = Query(6, ge=2, le=8),
+    neo4j_session: Neo4jSession = Depends(get_neo4j_session),
+    redis_client: Redis = Depends(get_redis),
+    current_user: User = Depends(get_current_user)
+):
+    _require_neo4j(neo4j_session)
+    service = GraphService(neo4j_session, redis_client)
+    return service.find_cycles(account_id=id, max_length=max_length)
+
+@router.get("/{id}/community", response_model=CommunityResponse)
+def get_community(
+    id: str,
+    hops: int = Query(2, ge=1, le=3),
+    neo4j_session: Neo4jSession = Depends(get_neo4j_session),
+    redis_client: Redis = Depends(get_redis),
+    current_user: User = Depends(get_current_user)
+):
+    _require_neo4j(neo4j_session)
+    return GraphService(neo4j_session, redis_client).find_community(account_id=id, hops=hops)

@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, and_, func
+from sqlalchemy import and_, exists, or_
 from typing import List, Tuple
 from app.models.account import Account
 from app.models.transaction import Transaction
@@ -24,33 +24,32 @@ class AccountRepository:
         q = self.db.query(Account)
 
         if query:
-            q = q.filter(Account.id.ilike(f"%{query}%"))
+            pattern = f"%{query}%"
+            q = q.filter(or_(
+                Account.id.ilike(pattern),
+                Account.phone.ilike(pattern),
+                Account.email.ilike(pattern),
+                Account.device_id.ilike(pattern),
+                Account.card_id.ilike(pattern)
+            ))
         
         if node_type:
             q = q.filter(Account.node_type == node_type.upper())
 
-        # If transaction-level filters are specified, join with transactions
+        # Filter accounts by a single matching transaction. EXISTS avoids the
+        # union/subquery ambiguity that can return accounts for unrelated rows.
         if min_amount is not None or max_amount is not None or is_fraud is not None:
-            txn_subq = self.db.query(Transaction.orig_account_id).union(
-                self.db.query(Transaction.dest_account_id)
-            )
-            txn_filter = self.db.query(Transaction)
+            txn_conditions = [or_(
+                Transaction.orig_account_id == Account.id,
+                Transaction.dest_account_id == Account.id
+            )]
             if min_amount is not None:
-                txn_filter = txn_filter.filter(Transaction.amount >= min_amount)
+                txn_conditions.append(Transaction.amount >= min_amount)
             if max_amount is not None:
-                txn_filter = txn_filter.filter(Transaction.amount <= max_amount)
+                txn_conditions.append(Transaction.amount <= max_amount)
             if is_fraud is not None:
-                txn_filter = txn_filter.filter(Transaction.is_fraud == is_fraud)
-            
-            matching_txn_accounts = self.db.query(Transaction.orig_account_id).filter(
-                Transaction.id.in_(txn_filter.with_entities(Transaction.id))
-            ).union(
-                self.db.query(Transaction.dest_account_id).filter(
-                    Transaction.id.in_(txn_filter.with_entities(Transaction.id))
-                )
-            ).subquery()
-
-            q = q.filter(Account.id.in_(matching_txn_accounts))
+                txn_conditions.append(Transaction.is_fraud == is_fraud)
+            q = q.filter(exists().where(and_(*txn_conditions)))
 
         total = q.count()
         accounts = q.offset((page - 1) * limit).limit(limit).all()

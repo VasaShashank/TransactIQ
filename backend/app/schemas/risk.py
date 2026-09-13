@@ -14,3 +14,16 @@ class RiskScoreResponse(BaseModel):
     risk_level: str # LOW, MEDIUM, HIGH, CRITICAL
     breakdown: RiskScoreBreakdown
     explainable_factors: Dict[str, str]
+
+class RiskQueueItem(BaseModel):
+    account_id: str
+    risk_score: float
+    risk_level: str
+    transaction_count: int
+    fraud_count: int
+    outgoing_volume: float
+    velocity_score: float
+    reason: str
+
+class RiskQueueResponse(BaseModel):
+    items: list[RiskQueueItem]

@@ -40,3 +40,18 @@ class CentralityResponse(BaseModel):
     degree_centrality: int
     in_degree: int
     out_degree: int
+
+class CycleFinding(BaseModel):
+    account_ids: List[str]
+    transaction_count: int
+    total_amount: float
+
+class CycleDetectionResponse(BaseModel):
+    account_id: str
+    cycles: List[CycleFinding]
+
+class CommunityResponse(BaseModel):
+    account_id: str
+    members: List[str]
+    member_count: int
+    method: str

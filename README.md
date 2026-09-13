@@ -1,6 +1,6 @@
 ﻿<div align="center">
 
-# 🔍 FraudLens
+# 🔍 TransactIQ
 
 ### Fraud Investigation & Transaction Intelligence Platform
 
@@ -20,14 +20,17 @@
 
 ## 📌 Overview
 
-**FraudLens** enables financial intelligence analysts to:
+**TransactIQ** enables financial intelligence analysts to:
 
 - 🔎 **Search & investigate** target accounts across millions of transactions
 - 🕸️ **Explore transaction graphs** with fan-in / fan-out relationship analysis (Neo4j)
 - 🧮 **Evaluate explainable risk scores** using a configurable weighted model
+- 📊 **Review a ranked suspicious-account queue** with fraud, velocity, and volume signals
+- 🧭 **Detect bounded transaction communities and cycles** in Neo4j
 - 📂 **Manage investigation cases** with full lifecycle tracking
+- 🧾 **Attach evidence and approve fraud / false-positive verdicts** with RBAC
 - 🔔 **Receive real-time alerts** via WebSocket push notifications
-- 📄 **Export PDF intelligence summaries** with ReportLab
+- 📄 **Export PDF intelligence reports** with graph, risk, evidence, and notes sections
 - 🗂️ **Full audit logging** of all analyst actions
 
 > Built on the real **PaySim Kaggle dataset** — 6.3M synthetic mobile money transactions with ground-truth fraud labels (`isFraud = 1`).
@@ -58,7 +61,7 @@
 ## 📁 Project Structure
 
 ```
-FraudLens/
+TransactIQ/
 ├── backend/
 │   ├── app/
 │   │   ├── core/           # Config, Security, DB, Neo4j, Redis, WebSockets
@@ -93,8 +96,8 @@ FraudLens/
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/VasaShashank/FraudLens.git
-cd FraudLens
+git clone https://github.com/VasaShashank/TransactIQ.git
+cd TransactIQ
 
 # 2. Copy and configure environment
 cp .env.example .env
@@ -144,6 +147,7 @@ python scripts/load_paysim_neo4j.py      # Load into Neo4j
 | Role | Email | Password |
 |---|---|---|
 | **Admin** | `admin@fraud.intel` | `admin123` |
+| **Senior Analyst** | `senior@fraud.intel` | `senior123` |
 | **Analyst** | `analyst@fraud.intel` | `analyst123` |
 
 > ⚠️ Change these in production via environment variables.
@@ -152,7 +156,7 @@ python scripts/load_paysim_neo4j.py      # Load into Neo4j
 
 ## 🧮 Risk Scoring Model
 
-FraudLens computes a normalized risk score using a configurable weighted formula:
+TransactIQ computes a normalized risk score using a configurable weighted formula:
 
 $$\text{Risk Score} = w_1 \cdot \text{FraudFlag} + w_2 \cdot \text{TxnFreq} + w_3 \cdot \text{OutgoingVol} + w_4 \cdot \text{LinkedAccounts} + w_5 \cdot \text{Centrality}$$
 
@@ -177,13 +181,19 @@ The full interactive API reference is available at **http://localhost:8000/docs*
 | Method | Endpoint | Description |
 |---|---|---|
 | `POST` | `/api/v1/auth/login` | Obtain JWT access token |
-| `GET` | `/api/v1/accounts/search` | Search accounts by name/ID |
-| `GET` | `/api/v1/accounts/{id}/transactions` | Get account transactions |
-| `GET` | `/api/v1/graph/{account_id}` | Graph traversal (Neo4j) |
-| `GET` | `/api/v1/risk/{account_id}` | Compute risk score |
+| `GET` | `/api/v1/accounts/search` | Search by account ID, phone, email, device, or card |
+| `GET` | `/api/v1/accounts/risk-queue` | Ranked suspicious-account queue |
+| `GET` | `/api/v1/accounts/{id}/timeline` | Get account transaction timeline |
+| `GET` | `/api/v1/accounts/{id}/graph` | N-hop graph traversal (Neo4j) |
+| `GET` | `/api/v1/accounts/{id}/cycles` | Detect bounded transaction cycles |
+| `GET` | `/api/v1/accounts/{id}/community` | Find connected account community |
+| `GET` | `/api/v1/accounts/{id}/risk-score` | Compute explainable risk score |
 | `POST` | `/api/v1/cases` | Create investigation case |
 | `GET` | `/api/v1/cases` | List all cases |
-| `GET` | `/api/v1/export/{case_id}/pdf` | Export PDF report |
+| `PATCH` | `/api/v1/cases/{id}` | Add notes/evidence or approve closure |
+| `DELETE` | `/api/v1/cases/{id}` | Delete case (admin only) |
+| `GET` | `/api/v1/cases/{id}/export` | Export PDF report |
+| `POST` | `/api/v1/alerts/scan` | Scan and publish high-risk alerts |
 | `GET` | `/api/v1/audit` | Audit log (admin only) |
 | `WS` | `/ws/alerts` | Real-time alert stream |
 

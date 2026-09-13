@@ -41,7 +41,12 @@ def get_current_user(
 
 def require_role(allowed_role: UserRole):
     def role_checker(current_user: User = Depends(get_current_user)) -> User:
-        if current_user.role != allowed_role.value and current_user.role != UserRole.ADMIN.value:
+        role_order = {
+            UserRole.ANALYST.value: 1,
+            UserRole.SENIOR_ANALYST.value: 2,
+            UserRole.ADMIN.value: 3,
+        }
+        if role_order.get(current_user.role, 0) < role_order[allowed_role.value]:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Operation requires {allowed_role.value} privilege"

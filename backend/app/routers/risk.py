@@ -6,11 +6,19 @@ from app.core.database import get_db
 from app.core.neo4j import get_neo4j_session
 from app.core.redis import get_redis
 from app.services.risk_score_service import RiskScoreService
-from app.schemas.risk import RiskScoreResponse
+from app.schemas.risk import RiskScoreResponse, RiskQueueResponse
 from app.routers.deps import get_current_user
 from app.models.user import User
 
 router = APIRouter(prefix="/accounts", tags=["Risk Score"])
+
+@router.get("/risk-queue", response_model=RiskQueueResponse)
+def get_risk_queue(
+    limit: int = 20,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    return RiskScoreService(db, None, None).get_risk_queue(limit=min(limit, 100))
 
 @router.get("/{id}/risk-score", response_model=RiskScoreResponse)
 def get_risk_score(

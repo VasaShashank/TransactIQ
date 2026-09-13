@@ -74,3 +74,14 @@ paysim.csv
 
 # -- Alembic -------------------------------------------------------------------
 backend/alembic/versions/__pycache__/
+
+# -- Local project artifacts --------------------------------------------------
+backend/transactiq.db
+backend/*.sqlite
+README (1).md
+fraud_investigation_platform_plan (1).md
+
+# -- Certificates and private keys -------------------------------------------
+*.pem
+*.key
+*.p12

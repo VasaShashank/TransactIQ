@@ -36,14 +36,15 @@ class CaseRepository:
             status=CaseStatus.OPEN.value,
             assigned_to=case_in.assigned_to or user_id,
             related_account_ids=case_in.related_account_ids,
-            notes=[]
+            notes=[],
+            evidence=[]
         )
         self.db.add(case)
         self.db.commit()
         self.db.refresh(case)
         return case
 
-    def update(self, case: Case, case_in: CaseUpdate, new_note_entry: dict | None = None) -> Case:
+    def update(self, case: Case, case_in: CaseUpdate, new_note_entry: dict | None = None, evidence_entry: dict | None = None) -> Case:
         if case_in.title is not None:
             case.title = case_in.title
         if case_in.description is not None:
@@ -61,6 +62,14 @@ class CaseRepository:
             current_notes = list(case.notes or [])
             current_notes.append(new_note_entry)
             case.notes = current_notes
+
+        if evidence_entry:
+            current_evidence = list(case.evidence or [])
+            current_evidence.append(evidence_entry)
+            case.evidence = current_evidence
+
+        if case_in.verdict is not None:
+            case.verdict = case_in.verdict.value if hasattr(case_in.verdict, "value") else str(case_in.verdict)
 
         self.db.commit()
         self.db.refresh(case)

@@ -1,9 +1,12 @@
 from datetime import datetime, timezone
-from sqlalchemy.orm import Session
-from fastapi import HTTPException, status
-from app.repositories.case_repository import CaseRepository
-from app.schemas.case import CaseCreate, CaseUpdate, CaseResponse
+
+from app.models.case import CaseStatus
 from app.models.user import User, UserRole
+from app.repositories.case_repository import CaseRepository
+from app.schemas.case import CaseCreate, CaseResponse, CaseUpdate
+from fastapi import HTTPException, status
+from sqlalchemy.orm import Session
+
 
 class CaseService:
     def __init__(self, db: Session):
@@ -29,8 +32,8 @@ class CaseService:
         if not case:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Case not found")
 
-        # RBAC Check: Admins can update any case; Analysts can only update cases assigned to them
-        if current_user.role != UserRole.ADMIN.value and case.assigned_to != current_user.id:
+        elevated_roles = {UserRole.SENIOR_ANALYST.value, UserRole.ADMIN.value}
+        if current_user.role not in elevated_roles and case.assigned_to != current_user.id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Analysts can only modify cases assigned to them"
@@ -43,11 +46,14 @@ class CaseService:
                 detail="Only administrators can reassign case ownership"
             )
 
-        if case_in.status is not None and case_in.status == "closed" and current_user.role != UserRole.ADMIN.value:
+        if case_in.status is not None and case_in.status == CaseStatus.CLOSED and current_user.role not in elevated_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only administrators can close investigation cases"
+                detail="Only senior analysts or administrators can approve case closure"
             )
+
+        if case_in.status == CaseStatus.CLOSED and not case_in.verdict:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="A closure verdict is required")
 
         new_note_entry = None
         if case_in.new_note:
@@ -58,5 +64,28 @@ class CaseService:
                 "timestamp": datetime.now(timezone.utc).isoformat()
             }
 
-        updated_case = self.case_repo.update(case, case_in, new_note_entry=new_note_entry)
+        evidence_entry = None
+        if case_in.evidence:
+            evidence_entry = {
+                **case_in.evidence.model_dump(),
+                "added_by": current_user.id,
+                "added_at": datetime.now(timezone.utc).isoformat()
+            }
+
+        updated_case = self.case_repo.update(case, case_in, new_note_entry=new_note_entry, evidence_entry=evidence_entry)
+        if case_in.status == CaseStatus.CLOSED:
+            now = datetime.now(timezone.utc)
+            case.approved_by = current_user.id
+            case.approved_at = now
+            case.closed_by = current_user.id
+            case.closed_at = now
+            self.case_repo.db.commit()
+            self.case_repo.db.refresh(case)
         return CaseResponse.model_validate(updated_case)
+
+    def delete_case(self, case_id: int) -> None:
+        case = self.case_repo.get_by_id(case_id)
+        if not case:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Case not found")
+        self.case_repo.db.delete(case)
+        self.case_repo.db.commit()

@@ -5,6 +5,10 @@ from typing import List, Optional
 class AccountResponse(BaseModel):
     id: str
     node_type: str
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    device_id: Optional[str] = None
+    card_id: Optional[str] = None
     created_at: Optional[datetime] = None
 
     class Config:

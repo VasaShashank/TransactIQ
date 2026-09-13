@@ -5,7 +5,7 @@ from redis import Redis
 from app.core.config import settings
 from app.repositories.transaction_repository import TransactionRepository
 from app.repositories.graph_repository import GraphRepository
-from app.schemas.risk import RiskScoreResponse, RiskScoreBreakdown
+from app.schemas.risk import RiskScoreResponse, RiskScoreBreakdown, RiskQueueResponse
 
 class RiskScoreService:
     def __init__(self, db: Session, neo4j_session: Neo4jSession | None, redis_client: Redis | None = None):
@@ -15,7 +15,7 @@ class RiskScoreService:
         self.redis = redis_client
 
     def calculate_risk_score(self, account_id: str) -> RiskScoreResponse:
-        cache_key = f"risk_score:{account_id}"
+        cache_key = f"risk_score:v2:{account_id}"
         if self.redis:
             try:
                 cached = self.redis.get(cache_key)
@@ -40,18 +40,20 @@ class RiskScoreService:
         has_fraud = 1.0 if stats["fraud_txns"] > 0 or stats["flagged_txns"] > 0 else 0.0
         fraud_score = has_fraud * 100.0
 
-        # Factor 2: Txn Frequency Score
-        txn_freq_score = min(100.0, (stats["total_txns"] / 10.0) * 100.0)
+        # Behavioral scores use conservative PaySim baselines. Normal activity
+        # must not become high risk merely because an account has transactions.
+        txn_freq_score = min(100.0, (stats["total_txns"] / 50.0) * 100.0)
 
-        # Factor 3: Outgoing Volume Score (scaled: > 200,000 => 100 score)
-        outgoing_vol_score = min(100.0, (stats["outgoing_vol"] / 200000.0) * 100.0)
+        # Scale volume at $500,000 instead of treating ordinary sample activity
+        # as suspicious solely because the transaction amounts are synthetic.
+        outgoing_vol_score = min(100.0, (stats["outgoing_vol"] / 500000.0) * 100.0)
 
         # Factor 4: Number of Linked Accounts (Fan-in + Fan-out)
         total_linked = fan["fan_in_count"] + fan["fan_out_count"]
-        linked_score = min(100.0, (total_linked / 15.0) * 100.0)
+        linked_score = min(100.0, (total_linked / 30.0) * 100.0)
 
         # Factor 5: Graph Centrality (Degree centrality: > 20 degree => 100 score)
-        centrality_score = min(100.0, (centrality["degree_centrality"] / 20.0) * 100.0)
+        centrality_score = min(100.0, (centrality["degree_centrality"] / 50.0) * 100.0)
 
         # Calculate Weighted Composite Score
         total_score = (
@@ -65,11 +67,11 @@ class RiskScoreService:
         total_score = round(min(100.0, max(0.0, total_score)), 2)
 
         # Risk Classification Level
-        if total_score >= 75.0:
+        if total_score >= 70.0:
             risk_level = "CRITICAL"
-        elif total_score >= 50.0:
+        elif total_score >= 55.0:
             risk_level = "HIGH"
-        elif total_score >= 25.0:
+        elif total_score >= 30.0:
             risk_level = "MEDIUM"
         else:
             risk_level = "LOW"
@@ -106,3 +108,6 @@ class RiskScoreService:
                 pass
 
         return res
+
+    def get_risk_queue(self, limit: int = 20) -> RiskQueueResponse:
+        return RiskQueueResponse(items=self.txn_repo.get_risk_queue(limit=limit))

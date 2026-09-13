@@ -198,6 +198,31 @@ class PDFService:
         elements.append(t_accounts)
         elements.append(Spacer(1, 12))
 
+        elements.append(Paragraph("Attached Evidence", h2_style))
+        evidence = case.evidence or []
+        if evidence:
+            evidence_data = [["Account", "Transaction", "Added By", "Evidence Note"]]
+            for item in evidence:
+                evidence_data.append([
+                    item.get("account_id") or "-",
+                    str(item.get("transaction_id") or "-"),
+                    f"User #{item.get('added_by', '-')}",
+                    Paragraph(item.get("note") or "No note", body_style)
+                ])
+            evidence_table = Table(evidence_data, colWidths=[110, 90, 90, 210])
+            evidence_table.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#0F766E")),
+                ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+                ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+                ('PADDING', (0,0), (-1,-1), 6),
+                ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#CBD5E1")),
+                ('VALIGN', (0,0), (-1,-1), 'TOP')
+            ]))
+            elements.append(evidence_table)
+        else:
+            elements.append(Paragraph("No evidence attached to this case.", body_style))
+        elements.append(Spacer(1, 12))
+
         # Investigation Notes / Audit Trail
         elements.append(Paragraph("Investigation Notes & Log", h2_style))
         notes = case.notes or []

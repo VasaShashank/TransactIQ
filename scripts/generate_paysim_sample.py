@@ -25,12 +25,13 @@ def generate_sample_paysim(output_path: str, num_records: int = 1500):
             old_dest = round(random.uniform(0.0, 50000.0), 2)
             new_dest = round(old_dest + amount, 2)
 
-            # Genuine fraud occurrence logic (high value transfer/cashout with balance clear)
+            # Demo fraud occurrence logic: high-value transfer/cash-out events
+            # must be possible within the generated $10-$50k amount range.
             is_fraud = 0
             is_flagged = 0
-            if ttype in ["TRANSFER", "CASH_OUT"] and amount > 200000.0 and random.random() < 0.15:
+            if ttype in ["TRANSFER", "CASH_OUT"] and amount > 20000.0 and random.random() < 0.15:
                 is_fraud = 1
-                if amount > 300000.0:
+                if amount > 35000.0:
                     is_flagged = 1
 
             records.append({
@@ -46,6 +47,30 @@ def generate_sample_paysim(output_path: str, num_records: int = 1500):
                 "isFraud": is_fraud,
                 "isFlaggedFraud": is_flagged
             })
+
+    # Deterministic investigation fixtures keep the demo useful even when the
+    # random sample happens not to produce positive fraud labels.
+    fixtures = [
+        (101, "TRANSFER", 42000.00, "C_FRAUD_RING_01", "C_FRAUD_MULE_01", 1, 1),
+        (101, "CASH_OUT", 38500.00, "C_FRAUD_MULE_01", "M_FRAUD_CASHOUT_01", 1, 1),
+        (102, "TRANSFER", 27500.00, "C_FRAUD_RING_01", "C_FRAUD_MULE_02", 1, 0),
+        (102, "TRANSFER", 23500.00, "C_FRAUD_MULE_02", "C_FRAUD_MULE_03", 1, 0),
+        (103, "CASH_OUT", 41000.00, "C_FRAUD_MULE_03", "M_FRAUD_CASHOUT_02", 1, 1),
+    ]
+    for step, ttype, amount, origin, destination, is_fraud, is_flagged in fixtures:
+        records.append({
+            "step": step,
+            "type": ttype,
+            "amount": amount,
+            "nameOrig": origin,
+            "oldbalanceOrg": amount + 10000.0,
+            "newbalanceOrig": 10000.0,
+            "nameDest": destination,
+            "oldbalanceDest": 1000.0,
+            "newbalanceDest": amount + 1000.0,
+            "isFraud": is_fraud,
+            "isFlaggedFraud": is_flagged
+        })
 
     df = pd.DataFrame(records)
     df.to_csv(output_path, index=False)

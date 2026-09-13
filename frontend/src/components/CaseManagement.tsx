@@ -22,6 +22,9 @@ export const CaseManagement: React.FC<CaseManagementProps> = ({ initialAccountId
   const [severity, setSeverity] = useState<'low' | 'medium' | 'high' | 'critical'>('high');
   const [relatedAccounts, setRelatedAccounts] = useState<string>('');
   const [newNote, setNewNote] = useState('');
+  const [evidenceAccount, setEvidenceAccount] = useState('');
+  const [evidenceTransaction, setEvidenceTransaction] = useState('');
+  const [evidenceNote, setEvidenceNote] = useState('');
 
   useEffect(() => {
     fetchCases();
@@ -92,6 +95,41 @@ export const CaseManagement: React.FC<CaseManagementProps> = ({ initialAccountId
     }
   };
 
+  const updateCase = async (caseId: number, payload: Record<string, unknown>) => {
+    try {
+      const res = await apiClient.patch<Case>(`/cases/${caseId}`, payload);
+      setSelectedCase(res.data);
+      fetchCases();
+    } catch (err: any) {
+      alert(err.response?.data?.detail || 'Unable to update case');
+    }
+  };
+
+  const handleAddEvidence = async (caseId: number) => {
+    if (!evidenceAccount && !evidenceTransaction) return;
+    await updateCase(caseId, {
+      evidence: {
+        account_id: evidenceAccount || undefined,
+        transaction_id: evidenceTransaction ? Number(evidenceTransaction) : undefined,
+        note: evidenceNote || undefined
+      }
+    });
+    setEvidenceAccount('');
+    setEvidenceTransaction('');
+    setEvidenceNote('');
+  };
+
+  const handleDeleteCase = async (caseId: number) => {
+    if (user?.role !== 'admin' || !window.confirm(`Delete case #${caseId}?`)) return;
+    try {
+      await apiClient.delete(`/cases/${caseId}`);
+      setSelectedCase(null);
+      fetchCases();
+    } catch (err: any) {
+      alert(err.response?.data?.detail || 'Unable to delete case');
+    }
+  };
+
   return (
     <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
@@ -155,6 +193,11 @@ export const CaseManagement: React.FC<CaseManagementProps> = ({ initialAccountId
                       <button onClick={() => handleExportPDF(c.id)} className="btn-secondary" style={{ padding: '4px 8px', fontSize: '0.75rem' }}>
                         <Download size={14} /> PDF
                       </button>
+                      {user?.role === 'admin' && (
+                        <button onClick={() => handleDeleteCase(c.id)} className="btn-secondary" style={{ padding: '4px 8px', fontSize: '0.75rem' }} title="Delete case">
+                          Delete
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -225,6 +268,23 @@ export const CaseManagement: React.FC<CaseManagementProps> = ({ initialAccountId
             </div>
 
             <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '16px', marginBottom: '16px' }}>
+              <h4 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '10px' }}>Evidence</h4>
+              {selectedCase.evidence?.map((item, index) => (
+                <div key={index} style={{ padding: '8px', marginBottom: '6px', background: 'rgba(15,23,42,0.8)', fontSize: '0.82rem' }}>
+                  {item.account_id && <span className="font-mono">Account: {item.account_id} </span>}
+                  {item.transaction_id && <span className="font-mono">Transaction: {item.transaction_id} </span>}
+                  {item.note && <span>{item.note}</span>}
+                </div>
+              ))}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <input className="input-field" placeholder="Account ID" value={evidenceAccount} onChange={(e) => setEvidenceAccount(e.target.value)} />
+                <input className="input-field" type="number" placeholder="Transaction ID" value={evidenceTransaction} onChange={(e) => setEvidenceTransaction(e.target.value)} />
+                <input className="input-field" placeholder="Evidence note" value={evidenceNote} onChange={(e) => setEvidenceNote(e.target.value)} />
+                <button className="btn-secondary" onClick={() => handleAddEvidence(selectedCase.id)}>Attach Evidence</button>
+              </div>
+            </div>
+
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '16px', marginBottom: '16px' }}>
               <h4 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '10px' }}>Investigation Log & Notes</h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '14px' }}>
                 {selectedCase.notes.length === 0 ? (
@@ -256,6 +316,25 @@ export const CaseManagement: React.FC<CaseManagementProps> = ({ initialAccountId
                 </button>
               </div>
             </div>
+
+            {selectedCase.status !== 'closed' && (
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '16px' }}>
+                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '10px' }}>Closure Review</h4>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <select id="case-verdict" className="input-field" defaultValue="fraud">
+                    <option value="fraud">Fraud</option>
+                    <option value="false_positive">False positive</option>
+                  </select>
+                  <button className="btn-primary" onClick={() => {
+                    const verdict = (document.getElementById('case-verdict') as HTMLSelectElement).value;
+                    updateCase(selectedCase.id, { status: 'closed', verdict });
+                  }} disabled={user?.role === 'analyst'}>
+                    Approve Closure
+                  </button>
+                </div>
+                {user?.role === 'analyst' && <small style={{ color: '#94A3B8' }}>Senior analyst approval required.</small>}
+              </div>
+            )}
           </div>
         </div>
       )}

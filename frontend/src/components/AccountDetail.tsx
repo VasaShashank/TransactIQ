@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import apiClient from '../api/client';
-import { TimelineResponse, GraphData, RiskScore, FanAnalysis, Centrality } from '../types';
+import { TimelineResponse, GraphData, RiskScore, FanAnalysis, Centrality, Community } from '../types';
 import { GraphViewer } from './GraphViewer';
 import { RiskBreakdown } from './RiskBreakdown';
 import { ArrowLeft, Clock, Network, AlertTriangle, Users, PlusCircle } from 'lucide-react';
@@ -24,6 +24,7 @@ export const AccountDetail: React.FC<AccountDetailProps> = ({
   const [riskData, setRiskData] = useState<RiskScore | null>(null);
   const [fanData, setFanData] = useState<FanAnalysis | null>(null);
   const [centrality, setCentrality] = useState<Centrality | null>(null);
+  const [community, setCommunity] = useState<Community | null>(null);
   const [hops, setHops] = useState<number>(1);
   const [loading, setLoading] = useState(false);
 
@@ -34,18 +35,20 @@ export const AccountDetail: React.FC<AccountDetailProps> = ({
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [tlRes, riskRes, fanRes, centRes, graphRes] = await Promise.all([
+      const [tlRes, riskRes, fanRes, centRes, graphRes, communityRes] = await Promise.all([
         apiClient.get<TimelineResponse>(`/accounts/${accountId}/timeline`),
         apiClient.get<RiskScore>(`/accounts/${accountId}/risk-score`),
         apiClient.get<FanAnalysis>(`/accounts/${accountId}/fan-analysis`),
         apiClient.get<Centrality>(`/accounts/${accountId}/centrality`),
-        apiClient.get<GraphData>(`/accounts/${accountId}/graph`, { params: { hops } })
+        apiClient.get<GraphData>(`/accounts/${accountId}/graph`, { params: { hops } }),
+        apiClient.get<Community>(`/accounts/${accountId}/community`, { params: { hops } })
       ]);
       setTimeline(tlRes.data);
       setRiskData(riskRes.data);
       setFanData(fanRes.data);
       setCentrality(centRes.data);
       setGraphData(graphRes.data);
+      setCommunity(communityRes.data);
     } catch (err) {
       console.error('Error fetching account detail:', err);
     } finally {
@@ -228,6 +231,16 @@ export const AccountDetail: React.FC<AccountDetailProps> = ({
                   ))}
                 </div>
               </div>
+
+              {community && (
+                <div className="glass-card" style={{ padding: '20px', gridColumn: '1 / -1' }}>
+                  <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '8px' }}>Connected Community</h3>
+                  <div style={{ color: '#94A3B8', fontSize: '0.8rem', marginBottom: '10px' }}>{community.member_count} accounts in bounded graph neighborhood</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {community.members.map((member) => <button key={member} onClick={() => onSelectAccount(member)} className="badge badge-medium font-mono" style={{ cursor: 'pointer', border: 0 }}>{member}</button>)}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </>

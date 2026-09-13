@@ -1,12 +1,19 @@
 import enum
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, JSON
-from sqlalchemy.sql import func
+
 from app.core.database import Base
+from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy.sql import func
+
 
 class CaseStatus(str, enum.Enum):
     OPEN = "open"
     IN_PROGRESS = "in_progress"
+    PENDING_APPROVAL = "pending_approval"
     CLOSED = "closed"
+
+class CaseVerdict(str, enum.Enum):
+    FRAUD = "fraud"
+    FALSE_POSITIVE = "false_positive"
 
 class CaseSeverity(str, enum.Enum):
     LOW = "low"
@@ -25,5 +32,11 @@ class Case(Base):
     assigned_to = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     related_account_ids = Column(JSON, default=list, nullable=False) # List of account string IDs
     notes = Column(JSON, default=list, nullable=False) # List of dicts: [{user_id, note, timestamp}]
+    evidence = Column(JSON, default=list, nullable=False) # List of account/transaction evidence records
+    verdict = Column(String, nullable=True)
+    approved_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    approved_at = Column(DateTime(timezone=True), nullable=True)
+    closed_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    closed_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

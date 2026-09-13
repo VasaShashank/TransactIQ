@@ -96,3 +96,40 @@ class GraphRepository:
             "in_degree": res["in_degree"] or 0,
             "out_degree": res["out_degree"] or 0
         }
+
+    def find_cycles(self, account_id: str, max_length: int = 6) -> Dict[str, Any]:
+        cypher = f"""
+        MATCH p = (a:Account {{id: $account_id}})-[:SENT*2..{max_length}]->(a)
+        RETURN [node IN nodes(p) | node.id] AS account_ids,
+               length(p) AS transaction_count,
+               reduce(total = 0.0, rel IN relationships(p) | total + coalesce(rel.amount, 0.0)) AS total_amount
+        LIMIT 20
+        """
+        result = self.session.run(cypher, account_id=account_id)
+        return {
+            "account_id": account_id,
+            "cycles": [
+                {
+                    "account_ids": record["account_ids"],
+                    "transaction_count": record["transaction_count"],
+                    "total_amount": float(record["total_amount"] or 0.0)
+                }
+                for record in result
+            ]
+        }
+
+    def find_community(self, account_id: str, hops: int = 2) -> Dict[str, Any]:
+        cypher = f"""
+        MATCH (a:Account {{id: $account_id}})-[:SENT*1..{hops}]-(member:Account)
+        RETURN DISTINCT member.id AS member_id
+        LIMIT 200
+        """
+        members = {account_id}
+        for record in self.session.run(cypher, account_id=account_id):
+            members.add(record["member_id"])
+        return {
+            "account_id": account_id,
+            "members": sorted(members),
+            "member_count": len(members),
+            "method": "bounded connected-component approximation"
+        }

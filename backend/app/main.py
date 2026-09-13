@@ -1,16 +1,16 @@
 import logging
 from contextlib import asynccontextmanager
+
+from app.core.config import settings
+from app.core.database import Base, SessionLocal, engine
+from app.core.security import get_password_hash
+from app.models.account import Account
+from app.models.transaction import Transaction
+from app.models.user import User, UserRole
+from app.routers import accounts, alerts, audit, auth, cases, export, graph, risk
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
-
-from app.core.config import settings
-from app.core.database import engine, Base, SessionLocal
-from app.core.security import get_password_hash
-from app.models.user import User, UserRole
-from app.models.account import Account
-from app.models.transaction import Transaction
-from app.routers import auth, accounts, graph, risk, cases, audit, alerts, export
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -54,6 +54,41 @@ def seed_sample_data(db):
                 is_fraud=is_fraud,
                 is_flagged_fraud=is_fraud
             ))
+
+    fixture_accounts = [
+        ("C_FRAUD_RING_01", "CUSTOMER"),
+        ("C_FRAUD_MULE_01", "CUSTOMER"),
+        ("C_FRAUD_MULE_02", "CUSTOMER"),
+        ("C_FRAUD_MULE_03", "CUSTOMER"),
+        ("M_FRAUD_CASHOUT_01", "MERCHANT"),
+        ("M_FRAUD_CASHOUT_02", "MERCHANT"),
+    ]
+    for account_id, node_type in fixture_accounts:
+        if not db.query(Account).filter(Account.id == account_id).first():
+            db.add(Account(id=account_id, node_type=node_type))
+    db.commit()
+
+    fixture_transactions = [
+        (101, "TRANSFER", 42000.0, "C_FRAUD_RING_01", "C_FRAUD_MULE_01", 1, 1),
+        (101, "CASH_OUT", 38500.0, "C_FRAUD_MULE_01", "M_FRAUD_CASHOUT_01", 1, 1),
+        (102, "TRANSFER", 27500.0, "C_FRAUD_RING_01", "C_FRAUD_MULE_02", 1, 0),
+        (102, "TRANSFER", 23500.0, "C_FRAUD_MULE_02", "C_FRAUD_MULE_03", 1, 0),
+        (103, "CASH_OUT", 41000.0, "C_FRAUD_MULE_03", "M_FRAUD_CASHOUT_02", 1, 1),
+    ]
+    for step, ttype, amount, origin, destination, is_fraud, is_flagged in fixture_transactions:
+        db.add(Transaction(
+            step=step,
+            type=ttype,
+            amount=amount,
+            orig_account_id=origin,
+            dest_account_id=destination,
+            old_balance_orig=amount + 10000.0,
+            new_balance_orig=10000.0,
+            old_balance_dest=1000.0,
+            new_balance_dest=amount + 1000.0,
+            is_fraud=is_fraud,
+            is_flagged_fraud=is_flagged
+        ))
     db.commit()
     logger.info("Sample PaySim accounts and transactions seeded successfully.")
 
@@ -92,6 +127,18 @@ async def lifespan(app: FastAPI):
                 analyst.hashed_password = get_password_hash("analyst123")
             db.commit()
             logger.info("Default users seeded and verified successfully.")
+
+            senior = db.query(User).filter(User.email == "senior@fraud.intel").first()
+            if not senior:
+                senior = User(
+                    email="senior@fraud.intel",
+                    hashed_password=get_password_hash("senior123"),
+                    role=UserRole.SENIOR_ANALYST.value
+                )
+                db.add(senior)
+            else:
+                senior.hashed_password = get_password_hash("senior123")
+            db.commit()
 
             # 3. Seed sample accounts and transactions in separate block
             try:

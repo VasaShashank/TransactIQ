@@ -14,7 +14,7 @@ router = APIRouter(prefix="/accounts", tags=["Accounts"])
 
 @router.get("/search", response_model=AccountSearchResult)
 def search_accounts(
-    query: str | None = Query(None, description="Account string ID search query"),
+    query: str | None = Query(None, description="Account ID, phone, email, device, or card search query"),
     type: str | None = Query(None, description="CUSTOMER or MERCHANT"),
     min_amount: float | None = Query(None),
     max_amount: float | None = Query(None),

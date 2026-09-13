@@ -2,7 +2,7 @@ import json
 from neo4j import Session as Neo4jSession
 from redis import Redis
 from app.repositories.graph_repository import GraphRepository
-from app.schemas.graph import GraphResponse, FanAnalysisResponse, CentralityResponse
+from app.schemas.graph import GraphResponse, FanAnalysisResponse, CentralityResponse, CycleDetectionResponse, CommunityResponse
 
 class GraphService:
     def __init__(self, neo4j_session: Neo4jSession, redis_client: Redis | None = None):
@@ -71,3 +71,9 @@ class GraphService:
                 pass
 
         return centrality_resp
+
+    def find_cycles(self, account_id: str, max_length: int = 6) -> CycleDetectionResponse:
+        return CycleDetectionResponse(**self.graph_repo.find_cycles(account_id, max_length=max_length))
+
+    def find_community(self, account_id: str, hops: int = 2) -> CommunityResponse:
+        return CommunityResponse(**self.graph_repo.find_community(account_id, hops=hops))

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.services.case_service import CaseService
@@ -6,6 +6,7 @@ from app.services.audit_service import AuditService
 from app.schemas.case import CaseCreate, CaseUpdate, CaseResponse
 from app.routers.deps import get_current_user
 from app.models.user import User
+from app.core.websockets import ws_manager
 
 router = APIRouter(prefix="/cases", tags=["Cases"])
 
@@ -22,7 +23,7 @@ def list_cases(
     return service.list_cases(status=status, assigned_to=assigned_to, page=page, limit=limit)
 
 @router.post("", response_model=CaseResponse, status_code=status.HTTP_201_CREATED)
-def create_case(
+async def create_case(
     case_in: CaseCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -39,6 +40,11 @@ def create_case(
         target_id=str(case_res.id),
         metadata_json={"title": case_in.title, "severity": case_in.severity}
     )
+    await ws_manager.broadcast({
+        "type": "case_created",
+        "case_id": case_res.id,
+        "message": f"Case #{case_res.id} was opened by {current_user.email}"
+    })
     return case_res
 
 @router.get("/{id}", response_model=CaseResponse)
@@ -51,7 +57,7 @@ def get_case(
     return service.get_case(id)
 
 @router.patch("/{id}", response_model=CaseResponse)
-def update_case(
+async def update_case(
     id: int,
     case_in: CaseUpdate,
     db: Session = Depends(get_db),
@@ -69,4 +75,32 @@ def update_case(
         target_id=str(id),
         metadata_json={"status": case_in.status, "assigned_to": case_in.assigned_to}
     )
+    await ws_manager.broadcast({
+        "type": "case_updated",
+        "case_id": id,
+        "status": case_res.status.value,
+        "message": f"Case #{id} was updated by {current_user.email}"
+    })
     return case_res
+
+@router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_case(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only administrators can delete cases")
+
+    CaseService(db).delete_case(id)
+    AuditService(db).log_action(
+        user_id=current_user.id,
+        action="CASE_DELETE",
+        target_type="CASE",
+        target_id=str(id)
+    )
+    await ws_manager.broadcast({
+        "type": "case_deleted",
+        "case_id": id,
+        "message": f"Case #{id} was deleted by {current_user.email}"
+    })

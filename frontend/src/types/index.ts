@@ -1,7 +1,7 @@
 export interface User {
   id: number;
   email: string;
-  role: 'analyst' | 'admin';
+  role: 'analyst' | 'senior_analyst' | 'admin';
   created_at: string;
 }
 
@@ -69,6 +69,13 @@ export interface Centrality {
   out_degree: number;
 }
 
+export interface Community {
+  account_id: string;
+  members: string[];
+  member_count: number;
+  method: string;
+}
+
 export interface RiskScoreBreakdown {
   known_fraud_flag_score: number;
   txn_frequency_score: number;
@@ -85,6 +92,17 @@ export interface RiskScore {
   explainable_factors: Record<string, string>;
 }
 
+export interface RiskQueueItem {
+  account_id: string;
+  risk_score: number;
+  risk_level: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  transaction_count: number;
+  fraud_count: number;
+  outgoing_volume: number;
+  velocity_score: number;
+  reason: string;
+}
+
 export interface CaseNote {
   user_id: number;
   user_email?: string;
@@ -96,13 +114,27 @@ export interface Case {
   id: number;
   title: string;
   description?: string;
-  status: 'open' | 'in_progress' | 'closed';
+  status: 'open' | 'in_progress' | 'pending_approval' | 'closed';
   severity: 'low' | 'medium' | 'high' | 'critical';
   assigned_to?: number;
   related_account_ids: string[];
   notes: CaseNote[];
+  evidence: CaseEvidence[];
+  verdict?: 'fraud' | 'false_positive';
+  approved_by?: number;
+  approved_at?: string;
+  closed_by?: number;
+  closed_at?: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface CaseEvidence {
+  account_id?: string;
+  transaction_id?: number;
+  note?: string;
+  added_by: number;
+  added_at: string;
 }
 
 export interface AuditLog {
